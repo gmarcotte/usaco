@@ -1,14 +1,14 @@
 /*
 ID: garrett2
 LANG: C
-TASK: palsquare
+TASK: dualpal
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MIN_N 1
-#define MAX_N 300
+#define MIN_BASE 2
+#define MAX_BASE 10
 
 int isPalindrome(char *str) {
   int left = 0;
@@ -64,23 +64,32 @@ void decToBase(int val, int base, char *out) {
 }
 
 int main() {
-  FILE *fin = fopen("palsquare.in", "r");
+  FILE *fin = fopen("dualpal.in", "r");
   
-  int base;
-  fscanf(fin, "%d", &base);
+  int s, n;
+  fscanf(fin, "%d %d", &n, &s);
   
   fclose(fin);
-
-  FILE *fout = fopen("palsquare.out", "w");
   
-  char numrep[10];
-  char sqrep[20];
+  char numrep[40];
+
+  FILE *fout = fopen("dualpal.out", "w");
+  
   int i;
-  for (i = MIN_N; i <= MAX_N; i++) {
-    decToBase(i*i, base, sqrep);
-    if (isPalindrome(sqrep)) {
-      decToBase(i, base, numrep);
-      fprintf(fout, "%s %s\n", numrep, sqrep);
+  int found = 0;
+  while (found < n) {
+    s++;
+    int numpal = 0;
+    for (i = MIN_BASE; i <= MAX_BASE; i++) {
+      decToBase(s, i, numrep);
+      if (isPalindrome(numrep)) {
+        numpal++;
+      }
+      if (numpal >= 2) {
+        fprintf(fout, "%d\n", s);
+        found++;
+        break;
+      }
     }
   }
   
