@@ -6,7 +6,6 @@ TASK: palsquare
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 #define MIN_N 1
 #define MAX_N 300
