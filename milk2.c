@@ -7,16 +7,11 @@ TASK: milk2
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef enum {
-  MILKING,
-  NOT_MILKING,
-  MILKING_COMPLETE
-} STATUS;
-
 typedef struct NODE NODE;
 struct NODE {
   NODE *next;
-  STATUS isMilking;
+  NODE *previous;
+  int isMilking;
   int time;
 };
 
@@ -28,6 +23,9 @@ NODE* freeNode(NODE *node) {
   
   NODE *next = node->next;
   free(node);
+  if (next) {
+    next->previous = NULL;
+  }
   return next;
 }
 
@@ -38,114 +36,130 @@ void freeNextNode(NODE *node) {
     return;
   }
   node->next = freeNode(node->next);
+  if (node->next) {
+    node->next->previous = node;
+  }
 }
 
 void insertMilkingInterval(int start, int end, NODE *root) {
   NODE *new_start = malloc(sizeof(NODE));
   NODE *new_end = malloc(sizeof(NODE));
   new_start->time = start;
-  new_start->isMilking = MILKING;
+  new_start->isMilking = 1;
   new_start->next = new_end;
+  new_start->previous = root;
   new_end->time = end;
-  new_end->isMilking = NOT_MILKING;
+  new_end->isMilking = 0;
   new_end->next = root->next;
+  new_end->previous = new_start;
   root->next = new_start;
 }
 
+/**
+ Invariants enforced:
+  - last point is always not milking
+  - milking and not milking intervals alternate
+ */
 void mergeMilkingInterval(int start, int end, NODE *root) {
-  // We walk to the last interval that starts before the given interval
-  while (root->next->isMilking != MILKING_COMPLETE &&
-         root->next->time < start) {
-    root = root->next;
+  if (root->next == NULL) {
+    if (root->time == start) {
+      root->time = end;
+    } else {
+      insertMilkingInterval(start, end, root);
+    }
+    return;
   }
   
-  NODE *next = root->next;
-  
-  // New interval starts beyond the known range of milking times, extend it
-  if (next->isMilking == MILKING_COMPLETE && next->time <= start) {
-    if (root->isMilking == MILKING) {
-      NODE *new_start = malloc(sizeof(NODE));
-      new_start->isMilking = NOT_MILKING;
-      new_start->time = next->time;
-      new_start->next = next;
-      next->time = end;
-      root->next = new_start;
-    } else {
-      next->time = end;
-    }
+  while (root->next && root->next->time <= start) {
+    root = root->next;
+  }
+
+  if (!root->next) {
     mergeMilkingInterval(start, end, root);
     return;
   }
   
-  
-  // New interval is contained by an existing milking interval
-  if (next->time >= end && root->isMilking == MILKING) {
+  if (root->next->time > end) {
+    if (root->isMilking) {
+      // pass
+    } else if (root->time == start) {
+      root->time = end;
+    } else {
+      insertMilkingInterval(start, end, root);
+    }
     return;
   }
   
-  // New interval butts up against the next interval
-  if (next->time == end && root->isMilking == NOT_MILKING) {
-    if (root->next->isMilking == MILKING) {
-      root->next->time = start;
-      return;
-    } else if (root->next->isMilking == MILKING_COMPLETE) {
-      NODE *new_start = malloc(sizeof(NODE));
-      new_start->next = root->next;
-      new_start->isMilking = MILKING;
-      new_start->time = start;
-      root->next = new_start;
-      return;
+  if (root->next->time == end) {
+    if (!root->isMilking) {
+      if (root->time == start) {
+        NODE *prev = root->previous;
+        freeNextNode(prev);
+        freeNextNode(prev);
+      } else {
+        root->next->time = start;
+      }
+    }
+    return;
+  }
+  
+  while (root->next && root->next->time <= end) {
+    freeNextNode(root);
+  }
+  
+  if (root->isMilking) {
+    if (!root->next) {
+      NODE *new_end = (NODE *)malloc(sizeof(NODE));
+      root->next = new_end;
+      new_end->time = end;
+      new_end->next = NULL;
+      new_end->previous = root;
+      new_end->isMilking = 0;
+    } else if (root->next->isMilking) {
+      NODE *new_end = (NODE *)malloc(sizeof(NODE));
+      new_end->isMilking = 0;
+      new_end->time = end;
+      new_end->next = root->next;
+      new_end->previous = root;
+      root->next->previous = new_end;
+      root->next = new_end;
+    }
+  } else {
+    if (!root->next) {
+      mergeMilkingInterval(start, end, root);
+    } else if (!root->next->isMilking) {
+      if (root->time == start) {
+        NODE *prev = root->previous;
+        freeNextNode(prev);
+      } else {
+        NODE *new_start = (NODE *)malloc(sizeof(NODE));
+        new_start->isMilking = 1;
+        new_start->time = start;
+        new_start->previous = root;
+        new_start->next = root->next;
+        root->next->previous= new_start;
+        root->next = new_start;
+      }
+    } else {
+      if (root->time == start) {
+        root->time = end;
+      } else {
+        insertMilkingInterval(start, end, root);
+      }
     }
   }
-  
-  // New interval is contained by an existing non-milking interval, need to
-  // create a new milking interval.
-  if (next->time > end && root->isMilking == NOT_MILKING) {
-    insertMilkingInterval(start, end, root);
-    return;
-  }
-  
-  // If we have overlap, we free nodes until we don't, then fix the invariant
-  while (root->next->isMilking != MILKING_COMPLETE && root->next->time < end) {
-    freeNextNode(root);
-  }
-  
-  next = root->next;
-  
-  // New interval ends beyond known range of milking times, extend it
-  if (next->isMilking == MILKING_COMPLETE) {
-    NODE *new_start = malloc(sizeof(NODE));
-    new_start->isMilking = NOT_MILKING;
-    new_start->time = next->time;
-    new_start->next = next;
-    next->time = end;
-    root->next = new_start;
-  }
-  
-  if (root->isMilking == root->next->isMilking) {
-    // We broke the invariant, just merge the two intervals with same status
-    freeNextNode(root);
-  }
-  
-  // Now we can insert our interval without overlap
-  mergeMilkingInterval(start, end, root);
 }
 
 int main() {
   int i = 0; // List indices
   FILE *fin = fopen("milk2.in", "r");
   
-  // Set up the initial list with the start and end nodes.  End is set to 0,
-  // it will be updated as we go along.  The entire interval is currently not
-  // milking.
-  NODE *start = malloc(sizeof(NODE));
-  NODE *end = malloc(sizeof(NODE));
-  start->next = end;
-  start->isMilking = NOT_MILKING;
-  start->time = 0;
-  end->next = NULL;
-  end->isMilking = MILKING_COMPLETE;
-  end->time = 0;
+  // Set up the initial node at time -1 so that all future nodes will be
+  // after it.
+  NODE *start = (NODE *)malloc(sizeof(NODE));
+  start->next = NULL;
+  start->isMilking = 0;
+  start->time = -1;
   
   int num;
   fscanf(fin, "%d", &num);
@@ -166,13 +180,13 @@ int main() {
   NODE *curr = start;
   int max_milking = 0;
   int max_non_milking = 0;
-  while (curr->isMilking != MILKING_COMPLETE) {
+  while (curr->next != NULL) {
     int duration = curr->next->time - curr->time;
-    if (curr->isMilking == MILKING && duration > max_milking) {
+    if (curr->isMilking && duration > max_milking) {
       max_milking = duration;
     }
     
-    if (curr->isMilking == NOT_MILKING &&
+    if (!curr->isMilking &&
         duration > max_non_milking &&
         max_milking > 0) {
       max_non_milking = duration;
