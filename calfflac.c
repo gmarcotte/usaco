@@ -22,111 +22,104 @@ int isChar(char c) {
   return (c >= 'a' && c <= 'z');
 }
 
-int isPalindrome(char *str, int left, int right) {
-  if (!isChar(toLower(str[left])) || !isChar(toLower(str[right]))) {
-    return 0;
+int maxPal1(char *norm, int i, int len) {
+  int max = 1;
+  int l = i - 1;
+  int r = i + 1;
+  while (l >= 0 && r < len && norm[l] == norm[r]) {
+    max += 2;
+    l--;
+    r++;
   }
-  
-  int found_char = 0;
-  while (left <= right) {
-    char l = toLower(str[left]);
-    if (!isChar(l)) {
-      left++;
-      continue;
-    }
-    
-    char r = toLower(str[right]);
-    if (!isChar(r)) {
-      right--;
-      continue;
-    }
-    
-    found_char++;
-    if (left != right) {
-      found_char++;
-    }
-    
-    if (r != l) {
-      return 0;
-    }
-    left++;
-    right--;
+  return max;
+}
+
+int maxPal2(char *norm, int i, int len) {
+  int max = 2;
+  int l = i - 1;
+  int r = i + 2;
+  while (l >= 0 && r < len && norm[l] == norm[r]) {
+    max += 2;
+    l--;
+    r++;
   }
-  return found_char;
+  return max;
 }
 
 int min(int a, int b) {
-  if (a < b) {
-    return a;
-  } else {
+  if (a > b) {
     return b;
+  } else {
+    return a;
   }
-}
-
-void longestPal(char *str, int left, int right, int curr_max, int *pal_left, int *pal_right, int *pal_len) {
-  int i, j;
-  int max_left = 0;
-  int max_right = 0;
-  int max_len = curr_max;
-  int curr_len;
-  for (i = 0; i <= right; i++) {
-    for (j = min(right, i + MAX_PAL_LEN - 1); j >= i; j--) {
-      if ((j - i + 1) <= max_len) {
-        // Already found a palindrome longer than the rest of the window
-        break;
-      }
-      curr_len = isPalindrome(str, i, j);
-      if (curr_len > max_len) {
-        max_len = curr_len;
-        max_left = i;
-        max_right = j;
-      }
-    }
-  }
-  *pal_left = max_left;
-  *pal_right = max_right;
-  *pal_len = max_len;
 }
 
 int main() {
   int i; // Loop indices
   
-  FILE *fin = fopen("calfflac.in3", "r");
-  
+  FILE *fin = fopen("calfflac.in", "r");
   char *str = (char *)malloc(MAX_STR_LEN * sizeof(char));
-  for (i = 0; fscanf(fin, "%c", &str[i]) != EOF; i++);
+  char *norm = (char *)malloc(MAX_STR_LEN * sizeof(char));
+  
+  char newchar;
+  int str_len = 0;
+  int num_chars = 0;
+  while (1) {
+    if (fscanf(fin, "%c", &newchar) == EOF) {
+      break;
+    }
+    str[str_len++] = newchar;
+    if (isChar(toLower(newchar))) {
+      norm[num_chars++] = toLower(newchar);
+    }
+  }
   fclose(fin);
   
-  int num_chars = i;
-  
   int max_left = 0;
-  int max_right = 0;
   int max_len = 1;
-  
-  if (num_chars <= MAX_STR_LEN) {
-    longestPal(str, 0, num_chars - 1, 1, &max_left, &max_right, &max_len);
-  } else {
-    int pal_left, pal_right, pal_len;
-    for (i = 0; i <= num_chars - MAX_PAL_LEN; i++) {
-      longestPal(str, i, i + MAX_PAL_LEN - 1, max_len, &pal_left, &pal_right, &pal_len);
-      if (pal_len > max_len) {
-        max_left = pal_left;
-        max_right = pal_right;
-        max_len = pal_len;
+  int tmp_len, tmp_left;
+  for (i = 0; i < num_chars; i++) {
+    tmp_len = maxPal1(norm, i, num_chars);
+    tmp_left = i - tmp_len / 2;
+    if (tmp_len > max_len) {
+      max_left = tmp_left;
+      max_len = tmp_len;
+    } else if (tmp_len == max_len) {
+      max_left = min(max_left, tmp_left);
+    }
+    if (i < num_chars - 1 && norm[i] == norm[i+1]) {
+      tmp_len = maxPal2(norm, i, num_chars);
+      tmp_left = i - (tmp_len - 1) / 2;
+      if (tmp_len > max_len) {
+        max_left = tmp_left;
+        max_len = tmp_len;
+      } else if (tmp_len == max_len) {
+        max_left = min(max_left, tmp_left);
       }
     }
   }
-
+  
   FILE *fout = fopen("calfflac.out", "w");
   fprintf(fout, "%d\n", max_len);
-  for (i = max_left; i <= max_right; i++) {
-    fprintf(fout, "%c", str[i]);
+  i = -1;
+  int j;
+  for (j = 0; j < str_len; j++) {
+    if (isChar(toLower(str[j]))) {
+      i++;
+    }
+    if (i >= max_left) {
+      fprintf(fout, "%c", str[j]);
+    }
+    if (i == max_left + max_len - 1) {
+      break;
+    }
   }
   fprintf(fout, "\n");
   fclose(fout);
 
   // Clean up allocated memory...
   free(str);
+  free(norm);
   
   exit(EXIT_SUCCESS);
 }
