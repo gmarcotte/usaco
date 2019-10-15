@@ -17,9 +17,6 @@
 *.out
 *.app
 
-# Input files
-*.in
-
 # XCode
 *.xcodeproj
 *.xcworkspace
