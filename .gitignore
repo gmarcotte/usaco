@@ -20,3 +20,5 @@
 # XCode
 *.xcodeproj
 *.xcworkspace
+
+.DS_Store
