@@ -3,7 +3,6 @@ ID: garrett2
 TASK: wormhole
 LANG: PYTHON3
 """
-import itertools
 
 class Wormhole:
 
